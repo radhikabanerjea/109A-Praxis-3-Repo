@@ -1,0 +1,124 @@
+#include <SPI.h>
+#include <WiFiNINA.h>
+
+#define LIGHT1 2  // Light connected to pin D2
+#define LIGHT2 3  // Light connected to pin D3
+#define BUTTON_PIN 4  // Button connected to pin D4
+
+char ssid[] = "yournetwork";        // your network SSID (name)
+char pass[] = "yourpassword";    // your network password
+int status = WL_IDLE_STATUS;
+WiFiServer server(80);
+
+bool lastButtonState = HIGH; 
+unsigned long lastToggleTime = 0;  
+const long toggleInterval = 10000;  
+
+// Variables to store the status of each light
+bool light1Status = false;
+bool light2Status = false;
+
+void setup() {
+  Serial.begin(9600);
+  while (!Serial) {
+    ; // wait for serial port to connect.
+  }
+
+  pinMode(LIGHT1, OUTPUT);
+  pinMode(LIGHT2, OUTPUT);
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+
+  digitalWrite(LIGHT1, light1Status); // Ensure initial LED state matches the variable
+  digitalWrite(LIGHT2, light2Status);
+
+  if (WiFi.status() == WL_NO_MODULE) {
+    Serial.println("Communication with WiFi module failed!");
+    while (true);
+  }
+
+  String fv = WiFi.firmwareVersion();
+  if (fv < WIFI_FIRMWARE_LATEST_VERSION) {
+    Serial.println("Please upgrade the firmware");
+  }
+
+  Serial.print("Creating access point named: ");
+  Serial.println(ssid);
+  status = WiFi.beginAP(ssid, pass);
+  if (status != WL_AP_LISTENING) {
+    Serial.println("Creating access point failed");
+    while (true);
+  }
+
+  delay(10000); // wait 10 seconds for connection
+  server.begin();
+  printWiFiStatus();
+}
+
+void loop() {
+  bool currentButtonState = digitalRead(BUTTON_PIN);
+  if (lastButtonState == HIGH && currentButtonState == LOW) {
+    // When the button is pressed, update the status variables but do not toggle the lights here
+    light1Status = digitalRead(LIGHT1);
+    light2Status = digitalRead(LIGHT2);
+  }
+  lastButtonState = currentButtonState;
+
+  unsigned long currentMillis = millis();
+  if (currentMillis - lastToggleTime >= toggleInterval) {
+    lastToggleTime = currentMillis;
+
+    // Toggle the lights and update their status
+    light1Status = !light1Status;
+    digitalWrite(LIGHT1, light1Status);
+    light2Status = !light2Status;
+    digitalWrite(LIGHT2, light2Status);
+  }
+
+  WiFiClient client = server.available();
+  if (client) {
+    Serial.println("new client");
+    while (client.connected()) {
+      if (client.available()) {
+        String currentLine = client.readStringUntil('\r');
+        client.flush();
+
+        // Send HTTP header
+        if (currentLine.length() <= 1) {
+          client.println("HTTP/1.1 200 OK");
+          client.println("Content-type:text/html");
+          client.println();
+
+          // HTML content
+          client.println("<!DOCTYPE html><html>");
+          client.println("<head><meta http-equiv='refresh' content='5'/><title>Arduino Light Status</title></head>");
+          client.println("<body>");
+          client.println("<h1>Light Status</h1>");
+          client.print("<p>Light 1 (D2): ");
+          client.print(light1Status ? "ON" : "OFF");
+          client.println("</p>");
+          client.print("<p>Light 2 (D3): ");
+          client.print(light2Status ? "ON" : "OFF");
+          client.println("</p>");
+          client.println("</body></html>");
+
+          client.println();
+          break; // Exit the loop after sending the response
+        }
+      }
+    }
+    client.stop();
+    Serial.println("client disconnected");
+  }
+}
+
+void printWiFiStatus() {
+  Serial.print("SSID: ");
+  Serial.println(WiFi.SSID());
+
+  IPAddress ip = WiFi.localIP();
+  Serial.print("IP Address: ");
+  Serial.println(ip);
+
+  Serial.println("To see this page in action, open a browser to http://" + ip.toString());
+}
+
