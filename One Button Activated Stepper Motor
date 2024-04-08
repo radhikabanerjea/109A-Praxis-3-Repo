@@ -1,0 +1,29 @@
+const int dirPin = 2;
+const int stepPin = 3;
+const int buttonPin = 4; // Connect your button to pin 4 and GND
+
+void setup()
+{
+  // Declare pins as Outputs
+  pinMode(stepPin, OUTPUT);
+  pinMode(dirPin, OUTPUT);
+  // Declare the button pin as an Input
+  pinMode(buttonPin, INPUT_PULLUP);
+  
+  // Set motor direction (HIGH for clockwise, LOW for counterclockwise)
+  digitalWrite(dirPin, HIGH);
+}
+void loop()
+{
+  // Check if button is pressed
+  // When pressed, the buttonPin should read LOW if wired to connect to GND when pressed
+  if(digitalRead(buttonPin) == LOW)
+  {
+    // Spin the motor as long as the button is pressed
+    digitalWrite(stepPin, HIGH);
+    delayMicroseconds(1000);
+    digitalWrite(stepPin, LOW);
+    delayMicroseconds(1000);
+  }
+  // If the button is not pressed, do nothing
+}
