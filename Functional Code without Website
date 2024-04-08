@@ -1,0 +1,515 @@
+#define TRIG_PIN1   9
+#define ECHO_PIN1   8
+#define TRIG_PIN2   7
+#define ECHO_PIN2   6
+#define G_LED   14
+#define Y_LED   15
+#define R_LED   16
+
+const int dirPin = 2;
+const int stepPin = 3;
+const int buttonPin1 = 4; // First button connected to pin 4 and GND
+const int buttonPin2 = 5; // Second button connected to pin 5 and GND
+float duration1_us, distance1_cm, duration2_us, distance2_cm, mindistance_cm;
+int status = 0; // Data collection only happens when this is activated after motors are used
+int fill = 0; // Texts are only sent the first time fill lines are passed
+
+void setup() {
+  // Declare pins as Outputs
+  pinMode(stepPin, OUTPUT);
+  pinMode(dirPin, OUTPUT);
+  // Declare the button pins as an Input with internal pull-up resistors
+  pinMode(buttonPin1, INPUT_PULLUP);
+  pinMode(buttonPin2, INPUT_PULLUP);
+  // Set motor direction (HIGH for clockwise, LOW for counterclockwise)
+  digitalWrite(dirPin, HIGH);
+  // begin serial port
+  Serial.begin (9600);
+  // Configure sensor pins
+  pinMode(TRIG_PIN1, OUTPUT);
+  pinMode(ECHO_PIN1, INPUT);
+  pinMode(TRIG_PIN2, OUTPUT);
+  pinMode(ECHO_PIN2, INPUT);
+  // Configure LED pins
+  pinMode(G_LED, OUTPUT);
+  pinMode(Y_LED, OUTPUT);
+  pinMode(R_LED, OUTPUT);
+}
+
+void loop() {
+  // Check if both buttons are pressed
+  // When pressed, the button pins should read LOW if wired to connect to GND when pressed
+  int i=0;
+  if(digitalRead(buttonPin1) == LOW && digitalRead(buttonPin2) == LOW) {
+    digitalWrite(dirPin, HIGH);
+    for(i; i <= 390; i++){
+      if(digitalRead(buttonPin1) == LOW && digitalRead(buttonPin2) == LOW) {
+        // Spin the motor as long as both buttons are pressed
+        digitalWrite(stepPin, HIGH);
+        delayMicroseconds(1000);
+        digitalWrite(stepPin, LOW);
+        delayMicroseconds(1000);
+        digitalWrite(TRIG_PIN1, HIGH);
+        delayMicroseconds(10);
+        digitalWrite(TRIG_PIN1, LOW);
+        delayMicroseconds(1000);
+      }
+      else{
+        break;
+      }
+    }
+  }
+  while(i > 0){
+    if(i == 390){
+      delayMicroseconds(1000000);
+    }
+    status = 1;
+    digitalWrite(dirPin, LOW);
+    // Spin the motor as long as both buttons are pressed
+    digitalWrite(stepPin, HIGH);
+    delayMicroseconds(1000);
+    digitalWrite(stepPin, LOW);
+    delayMicroseconds(1000);
+    digitalWrite(TRIG_PIN1, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(TRIG_PIN1, LOW);
+    delayMicroseconds(200);
+    i = i-1;
+  }
+  // Check if recently closed
+  if(status == 1){
+    int avgdistance = 0;
+    // Collect and average 30 sensor datapoints
+    for(int j = 0; j<30; j++){
+      // Produce a 10-microsecond pulse to the TRIG pin.
+      digitalWrite(TRIG_PIN1, HIGH);
+      delayMicroseconds(10);
+      digitalWrite(TRIG_PIN1, LOW);
+      // Measure the pulse duration from the ECHO pin
+      duration1_us = pulseIn(ECHO_PIN1, HIGH);
+      // Repeat
+      digitalWrite(TRIG_PIN2, HIGH);
+      delayMicroseconds(10);
+      digitalWrite(TRIG_PIN2, LOW);
+      duration2_us = pulseIn(ECHO_PIN2, HIGH);
+      // calculate the distance
+      distance1_cm = 0.017 * duration1_us;
+      distance2_cm = 0.017 * duration2_us;
+      mindistance_cm = min(distance1_cm, distance2_cm);
+      // print the value to Serial Monitor
+      // print the value to Serial Monitor
+      avgdistance += mindistance_cm;
+    }
+    avgdistance = avgdistance / 30;
+    Serial.print("distance: ");
+    Serial.print(avgdistance);
+    Serial.println(" cm");
+    // If box is nearly full, loop so you don't reenable buttons
+    while(avgdistance <= 5){
+      // Turn off green/yellow LEDs, turn on red
+      digitalWrite(G_LED, LOW);
+      digitalWrite(Y_LED, LOW);
+      digitalWrite(R_LED, HIGH);
+      if(fill != 2){
+        // Add code to send urgent text here
+        fill = 2;
+      }
+      // Periodically recollect data to see if it has been emptied
+      delay(300000);
+      avgdistance = 0;
+      for(int j = 0; j<30; j++){
+        // Produce a 10-microsecond pulse to the TRIG pin.
+        digitalWrite(TRIG_PIN1, HIGH);
+        delayMicroseconds(10);
+        digitalWrite(TRIG_PIN1, LOW);
+        // Measure the pulse duration from the ECHO pin
+        duration1_us = pulseIn(ECHO_PIN1, HIGH);
+        // Repeat
+        digitalWrite(TRIG_PIN2, HIGH);
+        delayMicroseconds(10);
+        digitalWrite(TRIG_PIN2, LOW);
+        duration2_us = pulseIn(ECHO_PIN2, HIGH);
+        // calculate the distance
+        distance1_cm = 0.017 * duration1_us;
+        distance2_cm = 0.017 * duration2_us;
+        mindistance_cm = min(distance1_cm, distance2_cm);
+        // print the value to Serial Monitor
+        // print the value to Serial Monitor
+        avgdistance += mindistance_cm;
+      }
+      avgdistance = avgdistance / 30;
+      Serial.print("distance: ");
+      Serial.print(avgdistance);
+      Serial.println(" cm");      
+    }
+    // If box is partially full turn on yellow light and send warning text
+    if(avgdistance > 5 && avgdistance <= 10){
+      digitalWrite(G_LED, LOW);
+      digitalWrite(R_LED, LOW);
+      digitalWrite(Y_LED, HIGH);
+      if(fill != 1){
+        // Add code to send warning text here
+        fill = 1;
+      }
+    }
+    // If box mostly empty turn on green light
+    if(avgdistance > 10){
+      digitalWrite(Y_LED, LOW);
+      digitalWrite(R_LED, LOW);
+      digitalWrite(G_LED, HIGH);
+      fill = 0;
+    }
+    // Delay before reenabling door to give time to remove hands from buttons
+    delayMicroseconds(2000000);
+    // Reset box to neutral state
+    status = 0;
+  }
+}
+
+
+2:
+#define TRIG_PIN1   9
+#define ECHO_PIN1   8
+#define TRIG_PIN2   7
+#define ECHO_PIN2   6
+#define G_LED   14
+#define Y_LED   15
+#define R_LED   16
+
+const int dirPin = 2;
+const int stepPin = 3;
+const int buttonPin1 = 4; // First button connected to pin 4 and GND
+const int buttonPin2 = 5; // Second button connected to pin 5 and GND
+float duration1_us, distance1_cm, duration2_us, distance2_cm, mindistance_cm;
+int status = 0; // Data collection only happens when this is activated after motors are used
+int fill = 0; // Texts are only sent the first time fill lines are passed
+
+void setup() {
+  // Declare pins as Outputs
+  pinMode(stepPin, OUTPUT);
+  pinMode(dirPin, OUTPUT);
+  // Declare the button pins as an Input with internal pull-up resistors
+  pinMode(buttonPin1, INPUT_PULLUP);
+  pinMode(buttonPin2, INPUT_PULLUP);
+  // Set motor direction (HIGH for clockwise, LOW for counterclockwise)
+  digitalWrite(dirPin, HIGH);
+  // begin serial port
+  Serial.begin (9600);
+  // Configure sensor pins
+  pinMode(TRIG_PIN1, OUTPUT);
+  pinMode(ECHO_PIN1, INPUT);
+  pinMode(TRIG_PIN2, OUTPUT);
+  pinMode(ECHO_PIN2, INPUT);
+  // Configure LED pins
+  pinMode(G_LED, OUTPUT);
+  pinMode(Y_LED, OUTPUT);
+  pinMode(R_LED, OUTPUT);
+}
+
+void loop() {
+  // Check if both buttons are pressed
+  // When pressed, the button pins should read LOW if wired to connect to GND when pressed
+  int i=0;
+  if(digitalRead(buttonPin1) == LOW && digitalRead(buttonPin2) == LOW) {
+    digitalWrite(dirPin, HIGH);
+    for(i; i <= 390; i++){
+      if(digitalRead(buttonPin1) == LOW && digitalRead(buttonPin2) == LOW) {
+        // Spin the motor as long as both buttons are pressed
+        digitalWrite(stepPin, HIGH);
+        delayMicroseconds(1000);
+        digitalWrite(stepPin, LOW);
+        delayMicroseconds(1000);
+        digitalWrite(TRIG_PIN1, HIGH);
+        delayMicroseconds(10);
+        digitalWrite(TRIG_PIN1, LOW);
+        delayMicroseconds(1000);
+      }
+      else{
+        break;
+      }
+    }
+  }
+  while(i > 0){
+    if(i == 390){
+      delayMicroseconds(1000000);
+    }
+    status = 1;
+    digitalWrite(dirPin, LOW);
+    // Spin the motor as long as both buttons are pressed
+    digitalWrite(stepPin, HIGH);
+    delayMicroseconds(1000);
+    digitalWrite(stepPin, LOW);
+    delayMicroseconds(1000);
+    digitalWrite(TRIG_PIN1, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(TRIG_PIN1, LOW);
+    delayMicroseconds(200);
+    i = i-1;
+  }
+  // Check if recently closed
+  if(status == 1){
+    int avgdistance = 0;
+    // Collect and average 30 sensor datapoints
+    for(int j = 0; j<30; j++){
+      // Produce a 10-microsecond pulse to the TRIG pin.
+      digitalWrite(TRIG_PIN1, HIGH);
+      delayMicroseconds(10);
+      digitalWrite(TRIG_PIN1, LOW);
+      // Measure the pulse duration from the ECHO pin
+      duration1_us = pulseIn(ECHO_PIN1, HIGH);
+      // Repeat
+      digitalWrite(TRIG_PIN2, HIGH);
+      delayMicroseconds(10);
+      digitalWrite(TRIG_PIN2, LOW);
+      duration2_us = pulseIn(ECHO_PIN2, HIGH);
+      // calculate the distance
+      distance1_cm = 0.017 * duration1_us;
+      distance2_cm = 0.017 * duration2_us;
+      mindistance_cm = min(distance1_cm, distance2_cm);
+      // print the value to Serial Monitor
+      // print the value to Serial Monitor
+      avgdistance += mindistance_cm;
+    }
+    avgdistance = avgdistance / 30;
+    Serial.print("distance: ");
+    Serial.print(avgdistance);
+    Serial.println(" cm");
+    // If box is nearly full, loop so you don't reenable buttons
+    while(avgdistance <= 11){
+      // Turn off green/yellow LEDs, turn on red
+      digitalWrite(G_LED, LOW);
+      digitalWrite(Y_LED, LOW);
+      digitalWrite(R_LED, HIGH);
+      if(fill != 2){
+        // Add code to send urgent text here
+        fill = 2;
+      }
+      // Periodically recollect data to see if it has been emptied
+      delay(3000);
+      avgdistance = 0;
+      for(int j = 0; j<30; j++){
+        // Produce a 10-microsecond pulse to the TRIG pin.
+        digitalWrite(TRIG_PIN1, HIGH);
+        delayMicroseconds(10);
+        digitalWrite(TRIG_PIN1, LOW);
+        // Measure the pulse duration from the ECHO pin
+        duration1_us = pulseIn(ECHO_PIN1, HIGH);
+        // Repeat
+        digitalWrite(TRIG_PIN2, HIGH);
+        delayMicroseconds(10);
+        digitalWrite(TRIG_PIN2, LOW);
+        duration2_us = pulseIn(ECHO_PIN2, HIGH);
+        // calculate the distance
+        distance1_cm = 0.017 * duration1_us;
+        distance2_cm = 0.017 * duration2_us;
+        mindistance_cm = min(distance1_cm, distance2_cm);
+        // print the value to Serial Monitor
+        // print the value to Serial Monitor
+        avgdistance += mindistance_cm;
+      }
+      avgdistance = avgdistance / 30;
+      Serial.print("distance: ");
+      Serial.print(avgdistance);
+      Serial.println(" cm");      
+    }
+    // If box is partially full turn on yellow light and send warning text
+    if(avgdistance > 11 && avgdistance <= 16){
+      digitalWrite(G_LED, LOW);
+      digitalWrite(R_LED, LOW);
+      digitalWrite(Y_LED, HIGH);
+      if(fill != 1){
+        // Add code to send warning text here
+        fill = 1;
+      }
+    }
+    // If box mostly empty turn on green light
+    if(avgdistance > 16){
+      digitalWrite(Y_LED, LOW);
+      digitalWrite(R_LED, LOW);
+      digitalWrite(G_LED, HIGH);
+      fill = 0;
+    }
+    // Delay before reenabling door to give time to remove hands from buttons
+    delayMicroseconds(2000000);
+    // Reset box to neutral state
+    status = 0;
+  }
+}
+
+
+
+3:
+#define TRIG_PIN1   9
+#define ECHO_PIN1   8
+#define TRIG_PIN2   7
+#define ECHO_PIN2   6
+#define G_LED   14
+#define Y_LED   15
+#define R_LED   16
+
+const int dirPin = 2;
+const int stepPin = 3;
+const int buttonPin1 = 4; // First button connected to pin 4 and GND
+const int buttonPin2 = 5; // Second button connected to pin 5 and GND
+float duration1_us, distance1_cm, duration2_us, distance2_cm, mindistance_cm;
+int status = 0; // Data collection only happens when this is activated after motors are used
+int fill = 0; // Texts are only sent the first time fill lines are passed
+
+void setup() {
+  // Declare pins as Outputs
+  pinMode(stepPin, OUTPUT);
+  pinMode(dirPin, OUTPUT);
+  // Declare the button pins as an Input with internal pull-up resistors
+  pinMode(buttonPin1, INPUT_PULLUP);
+  pinMode(buttonPin2, INPUT_PULLUP);
+  // Set motor direction (HIGH for clockwise, LOW for counterclockwise)
+  digitalWrite(dirPin, HIGH);
+  // begin serial port
+  Serial.begin (9600);
+  // Configure sensor pins
+  pinMode(TRIG_PIN1, OUTPUT);
+  pinMode(ECHO_PIN1, INPUT);
+  pinMode(TRIG_PIN2, OUTPUT);
+  pinMode(ECHO_PIN2, INPUT);
+  // Configure LED pins
+  pinMode(G_LED, OUTPUT);
+  pinMode(Y_LED, OUTPUT);
+  pinMode(R_LED, OUTPUT);
+}
+
+void loop() {
+  // Check if both buttons are pressed
+  // When pressed, the button pins should read LOW if wired to connect to GND when pressed
+  int i=0;
+  if(digitalRead(buttonPin1) == LOW && digitalRead(buttonPin2) == LOW) {
+    digitalWrite(dirPin, HIGH);
+    for(i; i <= 270; i++){
+      if(digitalRead(buttonPin1) == LOW && digitalRead(buttonPin2) == LOW) {
+        // Spin the motor as long as both buttons are pressed
+        digitalWrite(stepPin, HIGH);
+        delayMicroseconds(1000);
+        digitalWrite(stepPin, LOW);
+        delayMicroseconds(1000);
+        digitalWrite(TRIG_PIN1, HIGH);
+        delayMicroseconds(10);
+        digitalWrite(TRIG_PIN1, LOW);
+        delayMicroseconds(1000);
+      }
+      else{
+        break;
+      }
+    }
+  }
+  while(i > 0){
+    if(i == 390){
+      delayMicroseconds(1000000);
+    }
+    status = 1;
+    digitalWrite(dirPin, LOW);
+    // Spin the motor as long as both buttons are pressed
+    digitalWrite(stepPin, HIGH);
+    delayMicroseconds(1000);
+    digitalWrite(stepPin, LOW);
+    delayMicroseconds(1000);
+    digitalWrite(TRIG_PIN1, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(TRIG_PIN1, LOW);
+    delayMicroseconds(200);
+    i = i-1;
+  }
+  // Check if recently closed
+  if(status == 1){
+    // Collect and average 30 sensor datapoints
+    // Produce a 10-microsecond pulse to the TRIG pin.
+      digitalWrite(TRIG_PIN1, HIGH);
+      delayMicroseconds(10);
+      digitalWrite(TRIG_PIN1, LOW);
+      // Measure the pulse duration from the ECHO pin
+      duration1_us = pulseIn(ECHO_PIN1, HIGH);
+      digitalWrite(TRIG_PIN1, HIGH);
+      delayMicroseconds(10);
+      digitalWrite(TRIG_PIN1, LOW);
+      // Measure the pulse duration from the ECHO pin
+      duration1_us = pulseIn(ECHO_PIN1, HIGH);
+      distance1_cm = 0.017 * duration1_us;
+      // Repeat
+      delay(1000);
+      digitalWrite(TRIG_PIN2, HIGH);
+      delayMicroseconds(10);
+      digitalWrite(TRIG_PIN2, LOW);
+      duration2_us = pulseIn(ECHO_PIN2, HIGH);
+      // calculate the distance
+      distance2_cm = 0.017 * duration2_us;
+      Serial.print("1: ");
+      Serial.print(distance1_cm);
+      Serial.println(" cm");      
+      Serial.print("2: ");
+      Serial.print(distance2_cm);
+      Serial.println(" cm");      
+      //Serial.print(avgdistance);
+      mindistance_cm = min(distance1_cm, distance2_cm);
+      // print the value to Serial Monitor
+      // print the value to Serial Monitor
+      Serial.print("distance: ");
+      Serial.print(mindistance_cm);
+      Serial.println(" cm");      
+    // If box is nearly full, loop so you don't reenable buttons
+    while(mindistance_cm <= 11.8){
+      // Turn off green/yellow LEDs, turn on red
+      digitalWrite(G_LED, LOW);
+      digitalWrite(Y_LED, LOW);
+      digitalWrite(R_LED, HIGH);
+      if(fill != 2){
+        // Add code to send urgent text here
+        fill = 2;
+      }
+      // Periodically recollect data to see if it has been emptied
+      delay(3000);
+      // Produce a 10-microsecond pulse to the TRIG pin.
+      digitalWrite(TRIG_PIN1, HIGH);
+      delayMicroseconds(10);
+      digitalWrite(TRIG_PIN1, LOW);
+      // Measure the pulse duration from the ECHO pin
+      duration1_us = pulseIn(ECHO_PIN1, HIGH);
+      delay(1000);
+      // Repeat
+      digitalWrite(TRIG_PIN2, HIGH);
+      delayMicroseconds(10);
+      digitalWrite(TRIG_PIN2, LOW);
+      duration2_us = pulseIn(ECHO_PIN2, HIGH);
+      // calculate the distance
+      distance1_cm = 0.017 * duration1_us;
+      distance2_cm = 0.017 * duration2_us;
+      //Serial.print(avgdistance);
+      mindistance_cm = min(distance1_cm, distance2_cm);
+      // print the value to Serial Monitor
+      // print the value to Serial Monitor
+      Serial.print("distance: ");
+      Serial.print(mindistance_cm);
+      Serial.println(" cm");      
+    }
+    // If box is partially full turn on yellow light and send warning text
+    if(mindistance_cm > 11.8 && mindistance_cm <= 18.9){
+      digitalWrite(G_LED, LOW);
+      digitalWrite(R_LED, LOW);
+      digitalWrite(Y_LED, HIGH);
+      if(fill != 1){
+        // Add code to send warning text here
+        fill = 1;
+      }
+    }
+    // If box mostly empty turn on green light
+    if(mindistance_cm > 18.9){
+      digitalWrite(Y_LED, LOW);
+      digitalWrite(R_LED, LOW);
+      digitalWrite(G_LED, HIGH);
+      fill = 0;
+    }
+    // Delay before reenabling door to give time to remove hands from buttons
+    delayMicroseconds(2000000);
+    // Reset box to neutral state
+    status = 0;
+  }
+}
+
+
