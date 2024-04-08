@@ -1,0 +1,45 @@
+#define TRIG_PIN1   6
+#define ECHO_PIN1   5
+#define TRIG_PIN2   3
+#define ECHO_PIN2   2
+
+float duration1_us, distance1_cm, duration2_us, distance2_cm, mindistance_cm;
+
+void setup() {
+  // begin serial port
+  Serial.begin (9600);
+
+  // Configure pins
+  pinMode(TRIG_PIN1, OUTPUT);
+  pinMode(ECHO_PIN1, INPUT);
+  pinMode(TRIG_PIN2, OUTPUT);
+  pinMode(ECHO_PIN2, INPUT);
+}
+
+void loop() {
+  // Produce a 10-microsecond pulse to the TRIG pin.
+  digitalWrite(TRIG_PIN1, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIG_PIN1, LOW);
+
+  // Measure the pulse duration from the ECHO pin
+  duration1_us = pulseIn(ECHO_PIN1, HIGH);
+
+  // Repeat
+  digitalWrite(TRIG_PIN2, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIG_PIN2, LOW);
+
+  duration2_us = pulseIn(ECHO_PIN2, HIGH);
+
+  // calculate the distance
+  distance1_cm = 0.017 * duration1_us;
+  distance2_cm = 0.017 * duration2_us;
+  mindistance_cm = min(distance1_cm, distance2_cm);
+
+  // print the value to Serial Monitor
+  Serial.print("distance: ");
+  Serial.print(mindistance_cm);
+  Serial.println(" cm");
+  delay(200);
+}
